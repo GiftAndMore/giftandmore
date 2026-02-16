@@ -1,0 +1,13 @@
+{
+    "name": "gift-app-monorepo",
+    "version": "0.0.0",
+    "private": true,
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "dev:mobile": "npm run start --workspace=apps/mobile",
+        "dev:admin": "npm run dev --workspace=apps/admin"
+    }
+}
