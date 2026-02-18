@@ -1,5 +1,12 @@
 export type Role = 'user' | 'assistant' | 'admin';
 
+export interface AssistantActivityLog {
+    id: string;
+    action: string;
+    details: string;
+    timestamp: string;
+}
+
 export interface User {
     id: string;
     email: string;
@@ -11,10 +18,12 @@ export interface User {
     assistant_tasks?: AssistantTask[];
     assistant_status?: 'online' | 'busy' | 'offline';
     last_active?: string;
+    activity_log?: AssistantActivityLog[];
+    user_metadata?: { full_name: string; username?: string }; // Added for auth flow
     assistant_enabled?: boolean; // New field
 }
 
-export type AssistantTask = 'live_agent_support' | 'manage_products' | 'update_orders' | 'manage_banners' | 'manage_custom_requests';
+export type AssistantTask = 'live_agent_support' | 'manage_products' | 'add_products' | 'update_orders' | 'manage_banners' | 'manage_custom_requests';
 
 export interface Product {
     id: string;
@@ -24,7 +33,8 @@ export interface Product {
     sales_price?: number;
     sales_start_date?: string;
     sales_end_date?: string;
-    category: ('Birthday' | 'Valentine' | 'Baby' | 'Anniversary' | 'Wedding' | 'Celebration' | 'Thank You' | 'Baby Shower' | 'General')[];
+    is_active?: boolean; // Added to match mock data
+    category: ('Birthday' | 'Valentine' | 'Baby' | 'Anniversary' | 'Wedding' | 'Celebration' | 'Thank You' | 'Baby Shower' | 'General' | 'Flowers' | 'Toys' | 'Food' | 'Wellness' | 'Accessories' | 'Beauty' | 'Decor')[];
     gender?: 'Male' | 'Female' | 'Unisex';
     stock: number;
     images: string[];
@@ -40,9 +50,10 @@ export interface Banner {
     title: string;
     subtitle: string;
     image: string;
-    link_target: string;
+    cta_link?: string;
+    link_target?: string;
     is_active: boolean;
-    sort_order: number;
+    sort_order?: number;
 }
 
 export type OrderStatus = 'placed' | 'confirmed' | 'processing' | 'shipped' | 'out_for_delivery' | 'delivered' | 'failed' | 'cancelled' | 'returned';
@@ -74,11 +85,12 @@ export interface CustomRequest {
     id: string;
     user_id: string;
     user_name: string;
+    title?: string; // Added for redesign
     purpose: string;
     budget: string;
     description: string;
     recipient_details: string;
-    status: 'new' | 'in_review' | 'quoted' | 'paid' | 'closed';
+    status: 'new' | 'in_review' | 'quoted' | 'paid' | 'resolved' | 'closed' | 'rejected';
     quote_amount?: number;
     quote_message?: string;
     created_at: string;
@@ -103,7 +115,7 @@ export interface Conversation {
     related_order_id?: string;
 }
 
-export type ActivityType = 'order_placed' | 'order_updated' | 'user_banned' | 'product_created' | 'product_updated' | 'banner_updated' | 'support_escalated' | 'request_submitted' | 'assistant_created' | 'assistant_updated' | 'assistant_deleted' | 'password_reset';
+export type ActivityType = 'order_placed' | 'order_updated' | 'user_banned' | 'product_created' | 'product_updated' | 'banner_updated' | 'support_escalated' | 'request_submitted' | 'assistant_created' | 'assistant_updated' | 'assistant_deleted' | 'password_reset' | 'user_signup';
 
 export interface ActivityEvent {
     id: string;
@@ -113,4 +125,21 @@ export interface ActivityEvent {
     performer_name?: string;
     created_at: string;
     metadata?: any;
+}
+
+export interface ProductSubmission {
+    id: string;
+    product_data: Omit<Product, 'id'>;
+    submitted_by: string; // assistant_id
+    status: 'draft' | 'submitted' | 'approved' | 'rejected';
+    created_at: string;
+    admin_feedback?: string;
+}
+
+export interface BannerSubmission {
+    id: string;
+    banner_data: Omit<Banner, 'id'>;
+    submitted_by: string;
+    status: 'draft' | 'submitted' | 'approved' | 'rejected';
+    created_at: string;
 }

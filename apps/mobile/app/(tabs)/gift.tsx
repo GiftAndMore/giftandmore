@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { ALL_PRODUCTS } from '../../lib/data';
+import { useCart } from '../../lib/CartContext';
 
 const { width } = Dimensions.get('window');
 
@@ -26,7 +27,7 @@ export default function GiftScreen() {
     const [genderMenuVisible, setGenderMenuVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
-    const [cartCount, setCartCount] = useState(0);
+    const { cartCount, addToCart: contextAddToCart } = useCart();
 
     useEffect(() => {
         if (params.category && typeof params.category === 'string') {
@@ -56,8 +57,16 @@ export default function GiftScreen() {
             return priceOrder === 'asc' ? a.price - b.price : b.price - a.price;
         });
 
-    const addToCart = () => {
-        setCartCount(c => c + 1);
+    const addToCart = (product: any) => {
+        contextAddToCart({
+            productId: product.id,
+            name: product.title,
+            price: product.price,
+            quantity: 1,
+            image: product.media?.[0]?.url,
+            color: product.colors?.[0], // Default
+            size: product.sizes?.[0]   // Default
+        });
     };
 
     return (
@@ -219,7 +228,7 @@ export default function GiftScreen() {
                                 labelStyle={{ fontSize: 12, marginVertical: 6 }}
                                 onPress={(e) => {
                                     e.preventDefault();
-                                    addToCart();
+                                    addToCart(item);
                                 }}
                             >
                                 Add to Cart

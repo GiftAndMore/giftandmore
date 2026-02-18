@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Alert, Image } from 'react-native';
-import { Text, TextInput, Button, useTheme, Switch, IconButton } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, Image } from 'react-native';
+import { Text, TextInput, Button, useTheme, Switch, IconButton, Portal, Dialog, Paragraph } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { mockStore } from '../../../lib/mock-api';
@@ -15,6 +15,21 @@ export default function CreateBannerScreen() {
     const [image, setImage] = useState('https://picsum.photos/400/200');
     const [linkTarget, setLinkTarget] = useState('');
     const [isActive, setIsActive] = useState(true);
+
+    const [feedback, setFeedback] = useState<{ visible: boolean; title: string; message: string; isError: boolean; onDismiss?: () => void }>({
+        visible: false, title: '', message: '', isError: false
+    });
+
+    const showDialog = (title: string, message: string, isError = true, onDismiss?: () => void) => {
+        setFeedback({ visible: true, title, message, isError, onDismiss });
+    };
+
+    const hideDialog = () => {
+        const callback = feedback.onDismiss;
+        setFeedback({ ...feedback, visible: false, onDismiss: undefined });
+        if (callback) callback();
+    };
+
 
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -31,7 +46,7 @@ export default function CreateBannerScreen() {
 
     const handleCreate = async () => {
         if (!title || !image) {
-            Alert.alert('Error', 'Title and Image are required');
+            showDialog('Error', 'Title and Image are required');
             return;
         }
 
@@ -45,10 +60,9 @@ export default function CreateBannerScreen() {
                 is_active: isActive,
                 sort_order: 0 // Default
             });
-            Alert.alert('Success', 'Banner created');
-            router.back();
+            showDialog('Success', 'Banner created', false, () => router.back());
         } catch (e) {
-            Alert.alert('Error', 'Failed to create banner');
+            showDialog('Error', 'Failed to create banner');
         } finally {
             setSaving(false);
         }
@@ -73,7 +87,7 @@ export default function CreateBannerScreen() {
                             </Button>
                         </View>
                     ) : (
-                        <View style={styles.placeholderContainer}>
+                        <View style={[styles.placeholderContainer, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}>
                             <IconButton icon="image-plus" size={40} iconColor={theme.colors.primary} onPress={pickImage} />
                             <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>No image selected</Text>
                             <Button mode="contained" onPress={pickImage} style={{ marginTop: 12 }}>
@@ -100,6 +114,20 @@ export default function CreateBannerScreen() {
                     Create Banner
                 </Button>
             </View>
+
+            <Portal>
+                <Dialog visible={feedback.visible} onDismiss={hideDialog} style={{ backgroundColor: theme.colors.surface, borderRadius: 12 }}>
+                    <Dialog.Title style={{ color: feedback.isError ? theme.colors.error : theme.colors.primary, fontWeight: 'bold' }}>
+                        {feedback.title}
+                    </Dialog.Title>
+                    <Dialog.Content>
+                        <Paragraph style={{ color: theme.colors.onSurface }}>{feedback.message}</Paragraph>
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={hideDialog} textColor={theme.colors.primary}>OK</Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
         </ScrollView>
     );
 }
@@ -117,11 +145,9 @@ const styles = StyleSheet.create({
         height: 180,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#ccc',
         borderStyle: 'dashed',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#fafafa'
     },
     input: { marginBottom: 12 },
     switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, marginTop: 10 },

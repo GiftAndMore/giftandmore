@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, ScrollView, StyleSheet, Dimensions, Image, FlatList } from "react-native";
 import { Text, Card, Button, Chip, IconButton, Searchbar, FAB, useTheme } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, Redirect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAuth } from "../../lib/auth";
 
 import { ALL_PRODUCTS } from "../../lib/data";
 
@@ -29,6 +30,7 @@ const featured = [
 export default function HomeScreen() {
     const router = useRouter();
     const theme = useTheme();
+    const { session } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const flatListRef = useRef<FlatList>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -51,6 +53,11 @@ export default function HomeScreen() {
 
         return () => clearInterval(interval);
     }, []);
+
+    // Auth guard: redirect unauthenticated users to login
+    if (!session) {
+        return <Redirect href="/auth/login" />;
+    }
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>

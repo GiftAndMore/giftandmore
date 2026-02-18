@@ -50,7 +50,7 @@ export default function AdminOrdersScreen() {
             case 'processing': return '#F59E0B'; // Orange
             case 'delivered': return '#10B981'; // Green
             case 'cancelled': return '#EF4444'; // Red
-            default: return 'gray';
+            default: return '#808080'; // Gray
         }
     };
 

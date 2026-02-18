@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import { mockStore } from './mock-api';
 
 type UserRole = 'user' | 'assistant' | 'admin';
 
@@ -19,7 +20,7 @@ interface AuthContextType {
     role: UserRole | null;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<{ error: any }>;
-    signUp: (data: { email: string; password: string; full_name: string; username: string }) => Promise<{ error: any }>;
+    signUp: (data: { email: string; password: string; full_name: string; username: string }) => Promise<{ error: any; user?: any }>;
     signOut: () => void;
     updatePassword: (password: string) => Promise<{ error: any }>;
     isAdmin: boolean;
@@ -31,9 +32,14 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [session, setSession] = useState<MockSession | null>(null);
-    const [role, setRole] = useState<UserRole | null>(null);
+    const [authState, setAuthState] = useState<{ session: MockSession | null; role: UserRole | null }>({
+        session: null,
+        role: null
+    });
     const [loading, setLoading] = useState(true);
+
+    const session = authState.session;
+    const role = authState.role;
 
     useEffect(() => {
         // Simulate checking persistent storage
@@ -42,59 +48,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, 1000);
     }, []);
 
-    const signIn = async (email: string, password: string) => {
-        // Mock sign in - accepts anything
-        return new Promise<{ error: any }>((resolve) => {
-            setTimeout(() => {
-                const mockUser: MockUser = {
-                    id: 'mock-123',
-                    email: email,
-                    user_metadata: { full_name: email.split('@')[0] }
-                };
-                setSession({ user: mockUser });
-                setRole('user'); // Default to user
+    const signIn = useCallback(async (email: string, password: string) => {
+        // Validate against mock store
+        return new Promise<{ error: any }>(async (resolve) => {
+            const user = await mockStore.verifyCredentials(email, password);
+            if (user) {
+                if (user.role === 'assistant' && user.assistant_enabled === false) {
+                    resolve({ error: 'Account disabled. Contact admin.' });
+                    return;
+                }
+
+                // Batch both updates into a single setState to prevent cascade
+                setAuthState({
+                    session: { user: { id: user.id, email: user.email, user_metadata: { full_name: user.full_name } } },
+                    role: user.role
+                });
                 resolve({ error: null });
-            }, 800);
+            } else {
+                resolve({ error: 'Invalid email or password' });
+            }
         });
-    };
+    }, []);
 
-    const signUp = async (data: { email: string, password: string, full_name: string, username: string }) => {
-        // Mock sign up
-        return new Promise<{ error: any }>((resolve) => {
-            setTimeout(() => {
-                // In a real scenario, we'd store this in Supabase
-                console.log('Mock Signup with:', data);
-                resolve({ error: null });
-            }, 800);
+    const signUp = useCallback(async (data: { email: string, password: string, full_name: string, username: string }) => {
+        return new Promise<{ error: any; user?: any }>(async (resolve) => {
+            try {
+                const newUser = await mockStore.createUser(data);
+                resolve({ error: null, user: newUser });
+            } catch (e: any) {
+                resolve({ error: e.message || 'Failed to sign up' });
+            }
         });
-    };
+    }, []);
 
-    const signOut = () => {
-        setSession(null);
-        setRole(null);
-    };
+    const signOut = useCallback(() => {
+        setAuthState({ session: null, role: null });
+    }, []);
 
-    const updatePassword = async (password: string) => {
+    const updatePassword = useCallback(async (password: string) => {
         return new Promise<{ error: any }>((resolve) => {
             setTimeout(() => {
                 console.log('Mock Update Password to:', password);
                 resolve({ error: null });
             }, 1000);
         });
-    };
+    }, []);
+
+    const contextValue = useMemo(() => ({
+        session,
+        role,
+        loading,
+        signIn,
+        signUp,
+        signOut,
+        updatePassword,
+        isAdmin: role === 'admin',
+        isAssistant: role === 'assistant' || role === 'admin'
+    }), [session, role, loading]);
 
     return (
-        <AuthContext.Provider value={{
-            session,
-            role,
-            loading,
-            signIn,
-            signUp,
-            signOut,
-            updatePassword,
-            isAdmin: role === 'admin',
-            isAssistant: role === 'assistant' || role === 'admin'
-        }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );

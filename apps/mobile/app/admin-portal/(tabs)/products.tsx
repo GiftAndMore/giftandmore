@@ -4,21 +4,31 @@ import { Text, Searchbar, FAB, Surface, ActivityIndicator, useTheme, IconButton 
 import { useRouter } from 'expo-router';
 import { mockStore, Product } from '../../../lib/mock-api';
 
+import { useAdminAuth } from '../../../lib/admin-auth';
+
 export default function AdminProductsScreen() {
     const theme = useTheme();
     const router = useRouter();
+    const { adminSession } = useAdminAuth();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [hasPermission, setHasPermission] = useState(false);
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [adminSession]);
 
     const loadData = async () => {
         setLoading(true);
-        const data = await mockStore.getProducts();
-        setProducts(data);
+        const prods = await mockStore.getProducts();
+        setProducts(prods);
+
+        // Admin Portal is currently only for Super Admin, who has all permissions
+        if (adminSession) {
+            setHasPermission(true);
+        }
+
         setLoading(false);
     };
 
@@ -30,8 +40,32 @@ export default function AdminProductsScreen() {
                 <Image source={{ uri: item.images[0] }} style={styles.image} />
                 <View style={styles.details}>
                     <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>{item.name}</Text>
-                    <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{item.category} • Stock: {item.stock}</Text>
-                    <Text variant="titleSmall" style={{ marginTop: 4, color: theme.colors.primary, fontWeight: 'bold' }}>₦{item.price.toLocaleString()}</Text>
+                    <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                        {Array.isArray(item.category) ? item.category.join(', ') : item.category} • Stock: {item.stock}
+                    </Text>
+                    <View style={{ marginTop: 4 }}>
+                        {item.sales_price && item.sales_price > 0 &&
+                            (!item.sales_start_date || new Date(item.sales_start_date) <= new Date()) &&
+                            (!item.sales_end_date || new Date(item.sales_end_date) >= new Date()) ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Text variant="titleMedium" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>
+                                    ₦{item.sales_price.toLocaleString()}
+                                </Text>
+                                <Text variant="bodySmall" style={{ textDecorationLine: 'line-through', color: theme.colors.onSurfaceVariant }}>
+                                    ₦{item.price.toLocaleString()}
+                                </Text>
+                                <View style={{ borderWidth: 1, borderColor: theme.colors.primary, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 0 }}>
+                                    <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: 'bold' }}>
+                                        -{Math.round(((item.price - item.sales_price) / item.price) * 100)}%
+                                    </Text>
+                                </View>
+                            </View>
+                        ) : (
+                            <Text variant="titleSmall" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>
+                                ₦{item.price.toLocaleString()}
+                            </Text>
+                        )}
+                    </View>
                 </View>
                 <IconButton icon="chevron-right" size={20} />
             </TouchableOpacity>
@@ -41,7 +75,7 @@ export default function AdminProductsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <View style={styles.header}>
-                <Text variant="headlineMedium" style={{ fontWeight: 'bold', marginBottom: 12 }}>Catalog</Text>
+                <Text variant="headlineMedium" style={{ fontWeight: 'bold', marginBottom: 12 }}>Products</Text>
                 <Searchbar
                     placeholder="Search products..."
                     onChangeText={setSearchQuery}
@@ -61,13 +95,15 @@ export default function AdminProductsScreen() {
                 />
             )}
 
-            <FAB
-                icon="plus"
-                style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-                color="white"
-                label="Add Product"
-                onPress={() => router.push('/admin-portal/products/new' as any)}
-            />
+            {hasPermission && (
+                <FAB
+                    icon="plus"
+                    style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+                    color="white"
+                    label="Add Product"
+                    onPress={() => router.push('/admin-portal/products/new' as any)}
+                />
+            )}
         </View>
     );
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, StyleSheet, Alert, Image } from 'react-native';
-import { Text, TextInput, Button, useTheme } from 'react-native-paper';
+import { Text, TextInput, Button, useTheme, Portal, Dialog } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAdminAuth } from '../../lib/admin-auth';
 import { useRouter } from 'expo-router';
 
@@ -8,26 +9,42 @@ export default function AdminLoginScreen() {
     const [email, setEmail] = useState('user@admin.com');
     const [password, setPassword] = useState('Admin');
     const [loading, setLoading] = useState(false);
+    const [errorDialog, setErrorDialog] = useState({ visible: false, title: '', message: '' });
     const { signInAdmin } = useAdminAuth();
     const theme = useTheme();
     const router = useRouter();
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert('Error', 'Please enter email and password');
+            setErrorDialog({ visible: true, title: 'Error', message: 'Please enter email and password' });
             return;
         }
 
         setLoading(true);
         try {
+            const { mockStore } = require('../../lib/mock-api');
+            const user = await mockStore.verifyCredentials(email, password);
+
+            if (!user) {
+                setErrorDialog({ visible: true, title: 'Login Failed', message: 'Invalid credentials' });
+                setLoading(false);
+                return;
+            }
+
+            if (user.role !== 'admin') {
+                setErrorDialog({ visible: true, title: 'Access Denied', message: 'This portal is for Administrators only.' });
+                setLoading(false);
+                return;
+            }
+
             const { error } = await signInAdmin(email, password);
             if (error) {
-                Alert.alert('Login Failed', error);
+                setErrorDialog({ visible: true, title: 'Login Failed', message: error || 'Invalid credentials' });
             } else {
-                // Navigation handled by layout effect
+                router.replace('/admin-portal/(tabs)');
             }
         } catch (e) {
-            Alert.alert('Error', 'An unexpected error occurred');
+            setErrorDialog({ visible: true, title: 'Error', message: 'An unexpected error occurred' });
         } finally {
             setLoading(false);
         }
@@ -86,6 +103,36 @@ export default function AdminLoginScreen() {
                     Back to User App
                 </Button>
             </View>
+
+            <Portal>
+                <Dialog visible={errorDialog.visible} onDismiss={() => setErrorDialog({ ...errorDialog, visible: false })} style={{ backgroundColor: theme.colors.surface, borderRadius: 20 }}>
+                    <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+                        <MaterialCommunityIcons
+                            name={errorDialog.title.toLowerCase().includes('failed') || errorDialog.title.toLowerCase().includes('error') || errorDialog.title.toLowerCase().includes('denied') ? "alert-circle" : "check-circle"}
+                            size={48}
+                            color={errorDialog.title.toLowerCase().includes('failed') || errorDialog.title.toLowerCase().includes('error') || errorDialog.title.toLowerCase().includes('denied') ? theme.colors.error : theme.colors.primary}
+                        />
+                        <Dialog.Title style={{ textAlign: 'center', fontWeight: 'bold', color: theme.colors.onSurface, marginTop: 10 }}>
+                            {errorDialog.title}
+                        </Dialog.Title>
+                        <Dialog.Content>
+                            <Text style={{ textAlign: 'center', color: theme.colors.onSurfaceVariant, fontSize: 16 }}>
+                                {errorDialog.message}
+                            </Text>
+                        </Dialog.Content>
+                        <Dialog.Actions style={{ justifyContent: 'center', width: '100%', paddingBottom: 10 }}>
+                            <Button
+                                mode="contained"
+                                onPress={() => setErrorDialog({ ...errorDialog, visible: false })}
+                                style={{ borderRadius: 20, paddingHorizontal: 20 }}
+                                buttonColor={theme.colors.primary}
+                            >
+                                OK
+                            </Button>
+                        </Dialog.Actions>
+                    </View>
+                </Dialog>
+            </Portal>
         </View>
     );
 }

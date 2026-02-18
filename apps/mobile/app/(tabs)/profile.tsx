@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
-import { Text, Button, Avatar, Surface, IconButton, Divider, List, useTheme, TouchableRipple } from 'react-native-paper';
+import { Text, Button, Avatar, Surface, IconButton, Divider, List, useTheme, TouchableRipple, Portal, Dialog } from 'react-native-paper';
 import { useAuth } from '../../lib/auth';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,10 +12,10 @@ export default function ProfileScreen() {
     const { isDarkMode, toggleTheme } = useThemeContext();
     const theme = useTheme();
     const router = useRouter();
+    const [signOutDialog, setSignOutDialog] = React.useState(false);
 
     const handleSignOut = async () => {
-        await signOut();
-        router.replace('/auth/login');
+        setSignOutDialog(true);
     };
 
     const userEmail = session?.user?.email || 'Guest User';
@@ -134,7 +134,26 @@ export default function ProfileScreen() {
                     <Text variant="bodySmall" style={styles.version}>Version 1.0.5</Text>
                 </View>
             </ScrollView>
-        </View>
+
+            <Portal>
+                <Dialog visible={signOutDialog} onDismiss={() => setSignOutDialog(false)} style={{ backgroundColor: theme.colors.surface, borderRadius: 12 }}>
+                    <Dialog.Title style={{ color: theme.colors.onSurface, fontWeight: 'bold' }}>Sign Out</Dialog.Title>
+                    <Dialog.Content>
+                        <Text style={{ color: theme.colors.onSurfaceVariant }}>Are you sure you want to sign out?</Text>
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={() => setSignOutDialog(false)} textColor={theme.colors.onSurfaceVariant}>Cancel</Button>
+                        <Button onPress={async () => {
+                            setSignOutDialog(false);
+                            // Explicitly navigate to login to prevent layout loop/crash
+                            router.replace('/auth/login');
+                            // Then sign out
+                            await signOut();
+                        }} textColor={theme.colors.error}>Sign Out</Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
+        </View >
     );
 }
 

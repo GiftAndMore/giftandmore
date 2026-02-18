@@ -1,29 +1,44 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { Text, TextInput, Button, Surface, IconButton, useTheme } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text, TextInput, Button, Surface, IconButton, useTheme, Portal, Dialog, Paragraph } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 
 export default function SignupScreen() {
     const router = useRouter();
     const theme = useTheme();
-    const { signUp } = useAuth();
+    const { signUp, signIn } = useAuth();
     const [fullName, setFullName] = useState('');
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    const [feedback, setFeedback] = useState<{ visible: boolean; title: string; message: string; isError: boolean; onDismiss?: () => void }>({
+        visible: false, title: '', message: '', isError: false
+    });
+
+    const showDialog = (title: string, message: string, isError = true, onDismiss?: () => void) => {
+        setFeedback({ visible: true, title, message, isError, onDismiss });
+    };
+
+    const hideDialog = () => {
+        const callback = feedback.onDismiss;
+        setFeedback({ ...feedback, visible: false, onDismiss: undefined });
+        if (callback) callback();
+    };
 
     const handleSignup = async () => {
         if (!fullName || !username || !email || !password || !confirmPassword) {
-            Alert.alert('Error', 'Please fill in all fields');
+            showDialog('Error', 'Please fill in all fields');
             return;
         }
 
         if (password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match');
+            showDialog('Error', 'Passwords do not match');
             return;
         }
 
@@ -36,12 +51,17 @@ export default function SignupScreen() {
         });
 
         if (error) {
-            Alert.alert('Signup Failed', 'Could not create account');
+            showDialog('Signup Failed', error.message || 'Could not create account');
             setLoading(false);
         } else {
-            Alert.alert('Success', 'Account created! Logging you in...', [
-                { text: 'OK', onPress: () => router.replace('/auth/login') }
-            ]);
+            // Account created — now sign in (same pattern as login screen)
+            const { error: loginError } = await signIn(email, password);
+            setLoading(false);
+            if (loginError) {
+                showDialog('Error', 'Account created but login failed. Please use the login screen.');
+            } else {
+                router.replace('/');
+            }
         }
     };
 
@@ -122,8 +142,9 @@ export default function SignupScreen() {
                         mode="outlined"
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
-                        secureTextEntry={!showPassword}
+                        secureTextEntry={!showConfirmPassword} // Bug fix: previously used !showPassword
                         left={<TextInput.Icon icon="lock-check-outline" />}
+                        right={<TextInput.Icon icon={showConfirmPassword ? "eye-off" : "eye"} onPress={() => setShowConfirmPassword(!showConfirmPassword)} />}
                         style={[styles.input, { backgroundColor: theme.colors.surface }]}
                         textColor={theme.colors.onSurface}
                         outlineStyle={{ borderRadius: 12 }}
@@ -151,6 +172,20 @@ export default function SignupScreen() {
                         </Button>
                     </View>
                 </Surface>
+
+                <Portal>
+                    <Dialog visible={feedback.visible} onDismiss={hideDialog} style={{ backgroundColor: theme.colors.surface, borderRadius: 12 }}>
+                        <Dialog.Title style={{ color: feedback.isError ? theme.colors.error : theme.colors.primary, fontWeight: 'bold' }}>
+                            {feedback.title}
+                        </Dialog.Title>
+                        <Dialog.Content>
+                            <Paragraph style={{ color: theme.colors.onSurface }}>{feedback.message}</Paragraph>
+                        </Dialog.Content>
+                        <Dialog.Actions>
+                            <Button onPress={hideDialog} textColor={theme.colors.primary}>OK</Button>
+                        </Dialog.Actions>
+                    </Dialog>
+                </Portal>
             </ScrollView>
         </KeyboardAvoidingView>
     );

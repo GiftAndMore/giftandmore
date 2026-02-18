@@ -4,6 +4,7 @@ import { Text, Button, Chip, IconButton, Divider, useTheme, Surface } from 'reac
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getProductById } from '../lib/data';
+import { useCart } from '../lib/CartContext';
 
 const { width } = Dimensions.get('window');
 
@@ -30,8 +31,18 @@ export default function ProductDetailsScreen() {
     const [activeSlide, setActiveSlide] = useState(0);
     const [showSuccess, setShowSuccess] = useState(false);
 
+    const { addToCart } = useCart();
+
     const handleAddToCart = () => {
-        // In a real app, this would update a cart context/database
+        addToCart({
+            productId: product.id,
+            name: product.title,
+            price: product.price,
+            quantity: quantity,
+            image: product.media?.[0]?.url,
+            color: selectedColor,
+            size: selectedSize
+        });
         setShowSuccess(true);
     };
 

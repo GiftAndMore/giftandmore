@@ -1,33 +1,12 @@
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { AdminAuthProvider, useAdminAuth } from '../../lib/admin-auth';
 import { PaperProvider } from 'react-native-paper';
-import { useEffect } from 'react';
 import { useThemeContext } from '../../lib/ThemeContext';
-import { lightTheme, darkTheme } from '../theme';
+import { lightTheme, darkTheme } from '../../lib/theme';
 
 function AdminLayoutNav() {
     const { adminSession, loading } = useAdminAuth();
-    const router = useRouter();
-    const segments = useSegments() as string[];
-
-    useEffect(() => {
-        if (loading) return;
-
-        // Ensure we are in the admin group; otherwise, allow navigation out
-        if (segments[0] !== 'admin-portal') return;
-
-        // Since the folder is now "admin-portal", checking segments[1] === 'login' covers /admin-portal/login
-        const inAdminLogin = segments.length > 1 && segments[1] === 'login';
-
-        if (!adminSession && !inAdminLogin) {
-            // Redirect to admin login if not authenticated
-            router.replace('/admin-portal/login');
-        } else if (adminSession && inAdminLogin) {
-            // Redirect to dashboard if already logged in
-            router.replace('/admin-portal/(tabs)');
-        }
-    }, [adminSession, loading, segments]);
 
     if (loading) {
         return (

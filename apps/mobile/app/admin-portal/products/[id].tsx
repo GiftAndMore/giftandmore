@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import * as ImagePicker from 'expo-image-picker';
-
-// ...
 import { View, ScrollView, StyleSheet, Alert, Image, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
-import { Text, TextInput, Button, useTheme, IconButton, Chip, SegmentedButtons, Surface } from 'react-native-paper';
+import { Text, TextInput, Button, useTheme, IconButton, Chip, SegmentedButtons, Surface, Portal, Dialog, Paragraph, Icon } from 'react-native-paper';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { mockStore, Product } from '../../../lib/mock-api';
+import { useAuth } from '../../../lib/auth';
+import { useAdminAuth } from '../../../lib/admin-auth';
 
 const CATEGORIES = ['Birthday', 'Valentine', 'Baby', 'Anniversary', 'Wedding', 'Celebration', 'Thank You', 'Baby Shower', 'General'];
 const GENDERS = ['Male', 'Female', 'Unisex'];
@@ -75,6 +75,25 @@ export default function EditProductScreen() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [product, setProduct] = useState<Product | null>(null);
+    const { session, role } = useAuth();
+    const { adminSession } = useAdminAuth();
+    const [canEdit, setCanEdit] = useState(false);
+
+    // Dialog State
+    const [dialogVisible, setDialogVisible] = useState(false);
+    const [dialogConfig, setDialogConfig] = useState<{ title: string; message: string; isError?: boolean; onDismiss?: () => void }>({ title: '', message: '' });
+
+    const showDialog = (title: string, message: string, isError = false, onDismiss?: () => void) => {
+        setDialogConfig({ title, message, isError, onDismiss });
+        setDialogVisible(true);
+    };
+
+    const hideDialog = () => {
+        setDialogVisible(false);
+        if (dialogConfig.onDismiss) {
+            dialogConfig.onDismiss();
+        }
+    };
 
     // Form fields
     const [name, setName] = useState('');
@@ -104,7 +123,22 @@ export default function EditProductScreen() {
 
     const loadProduct = async () => {
         setLoading(true);
-        const data = await mockStore.getProduct(id as string);
+        const [data, currentUser] = await Promise.all([
+            mockStore.getProduct(id as string),
+            session?.user.id ? mockStore.getUser(session.user.id) : null
+        ]);
+
+        // Permission Check
+        if (adminSession) {
+            setCanEdit(true);
+        } else if (role === 'admin') {
+            setCanEdit(true);
+        } else if (currentUser?.role === 'assistant' && currentUser.assistant_tasks?.includes('manage_products')) {
+            setCanEdit(true);
+        } else {
+            setCanEdit(false);
+        }
+
         if (data) {
             setProduct(data);
             setName(data.name);
@@ -133,8 +167,7 @@ export default function EditProductScreen() {
                 if (!isNaN(parseInt(data.sizes[0]))) setSizeType('Numeric');
             }
         } else {
-            Alert.alert('Error', 'Product not found');
-            router.back();
+            showDialog('Error', 'Product not found', true, () => router.back());
         }
         setLoading(false);
     };
@@ -193,7 +226,7 @@ export default function EditProductScreen() {
 
         if (salesPrice && startDate && endDate) {
             if (new Date(startDate) > new Date(endDate)) {
-                Alert.alert('Error', 'Sales End Date must be after Start Date');
+                showDialog('Error', 'Sales End Date must be after Start Date', true);
                 return;
             }
         }
@@ -214,9 +247,9 @@ export default function EditProductScreen() {
                 colors,
                 sizes: selectedSizes
             });
-            Alert.alert('Success', 'Product updated successfully');
+            showDialog('Success', 'Product updated successfully');
         } catch (e) {
-            Alert.alert('Error', 'Failed to update product');
+            showDialog('Error', 'Failed to update product', true);
         } finally {
             setSaving(false);
         }
@@ -237,7 +270,7 @@ export default function EditProductScreen() {
                             await mockStore.deleteProduct(product!.id);
                             router.back();
                         } catch (e) {
-                            Alert.alert('Error', 'Failed to delete product');
+                            showDialog('Error', 'Failed to delete product', true);
                             setSaving(false);
                         }
                     }
@@ -254,7 +287,7 @@ export default function EditProductScreen() {
             <View style={styles.header}>
                 <IconButton icon="arrow-left" onPress={() => router.back()} />
                 <Text variant="headlineSmall" style={{ fontWeight: 'bold' }}>Edit Product</Text>
-                <IconButton icon="delete" iconColor={theme.colors.error} onPress={handleDelete} />
+                {canEdit && <IconButton icon="delete" iconColor={theme.colors.error} onPress={handleDelete} />}
             </View>
 
             <View style={styles.form}>
@@ -396,10 +429,64 @@ export default function EditProductScreen() {
                     ))}
                 </View>
 
-                <Button mode="contained" onPress={handleSave} loading={saving} style={styles.submitBtn} contentStyle={{ height: 50 }}>
-                    Save Changes
-                </Button>
+                {canEdit ? (
+                    <Button mode="contained" onPress={handleSave} loading={saving} style={styles.submitBtn} contentStyle={{ height: 50 }}>
+                        Save Changes
+                    </Button>
+                ) : (
+                    <Text variant="bodyMedium" style={{ textAlign: 'center', marginTop: 32, color: theme.colors.onSurfaceVariant }}>
+                        You do not have permission to edit products.
+                    </Text>
+                )}
             </View>
+
+            <Portal>
+                <Dialog visible={dialogVisible} onDismiss={hideDialog} style={{ backgroundColor: theme.colors.elevation.level3, borderRadius: 28 }}>
+                    <Dialog.Content style={{ alignItems: 'center', paddingVertical: 24 }}>
+                        <View style={{
+                            backgroundColor: dialogConfig.isError ? theme.colors.errorContainer : 'rgba(74, 222, 128, 0.15)',
+                            padding: 16,
+                            borderRadius: 50,
+                            marginBottom: 20,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                        }}>
+                             <Icon
+                                source={dialogConfig.isError ? "alert-circle" : "check-circle"}
+                                size={40}
+                                color={dialogConfig.isError ? theme.colors.error : '#4ADE80'}
+                            />
+                        </View>
+                         <Text variant="headlineSmall" style={{
+                            fontWeight: 'bold',
+                            textAlign: 'center',
+                            color: theme.colors.onSurface,
+                            marginBottom: 8
+                        }}>
+                            {dialogConfig.title}
+                        </Text>
+                        <Text variant="bodyMedium" style={{
+                            textAlign: 'center',
+                            color: theme.colors.onSurfaceVariant,
+                            paddingHorizontal: 8
+                        }}>
+                            {dialogConfig.message}
+                        </Text>
+                    </Dialog.Content>
+                    <Dialog.Actions style={{ paddingHorizontal: 24, paddingBottom: 24 }}>
+                        <Button
+                            mode="contained"
+                            onPress={hideDialog}
+                            style={{ flex: 1, borderRadius: 100 }}
+                            contentStyle={{ paddingVertical: 6 }}
+                            buttonColor={dialogConfig.isError ? theme.colors.error : theme.colors.primary}
+                            labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
+                        >
+                            Okay
+                        </Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
         </ScrollView>
     );
 }

@@ -20,6 +20,7 @@ create table public.profiles (
   whatsapp text,
   role user_role default 'user'::user_role,
   assistant_enabled boolean default false,
+  assistant_tasks text[], -- Array of permission strings
   status assistant_status default 'offline'::assistant_status,
   updated_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
@@ -97,6 +98,7 @@ create type tag_type as enum ('sex', 'purpose', 'custom');
 create table public.gift_tags (
   id uuid default uuid_generate_v4() primary key,
   name text not null,
+  slug text not null unique,
   type tag_type not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

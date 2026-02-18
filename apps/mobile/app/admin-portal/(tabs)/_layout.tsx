@@ -43,7 +43,7 @@ export default function AdminTabsLayout() {
             <Tabs.Screen
                 name="products"
                 options={{
-                    title: 'Catalog',
+                    title: 'Products',
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name="shopping-outline" size={size} color={color} />
                     ),
@@ -67,12 +67,11 @@ export default function AdminTabsLayout() {
                     ),
                 }}
             />
-            {/* Hidden tabs or extras */}
             <Tabs.Screen
-                name="more"
+                name="profile"
                 options={{
-                    title: 'More',
-                    href: null, // Hide if not needed yet, or implement later
+                    title: 'Profile',
+                    href: null, // Hide from tab bar, access via header icon
                 }}
             />
         </Tabs>

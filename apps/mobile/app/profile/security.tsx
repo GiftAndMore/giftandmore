@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, TextInput, Button, Appbar, Surface, HelperText, useTheme } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text, TextInput, Button, Appbar, Surface, HelperText, useTheme, Portal, Dialog, Paragraph } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { useForm, Controller } from 'react-hook-form';
@@ -27,6 +27,21 @@ export default function SecuritySettingsScreen() {
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+    const [feedback, setFeedback] = useState<{ visible: boolean; title: string; message: string; isError: boolean; onDismiss?: () => void }>({
+        visible: false, title: '', message: '', isError: false
+    });
+
+    const showDialog = (title: string, message: string, isError = true, onDismiss?: () => void) => {
+        setFeedback({ visible: true, title, message, isError, onDismiss });
+    };
+
+    const hideDialog = () => {
+        const callback = feedback.onDismiss;
+        setFeedback({ ...feedback, visible: false, onDismiss: undefined });
+        if (callback) callback();
+    };
+
+
     const { control, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
         resolver: zodResolver(schema),
     });
@@ -39,12 +54,10 @@ export default function SecuritySettingsScreen() {
 
             if (error) throw error;
 
-            Alert.alert('Success', 'Your password has been updated successfully.', [
-                { text: 'OK', onPress: () => router.push('/(tabs)/profile') }
-            ]);
+            showDialog('Success', 'Your password has been updated successfully.', false, () => router.push('/(tabs)/profile'));
             reset();
         } catch (err: any) {
-            Alert.alert('Error', 'Failed to update password. Please try again.');
+            showDialog('Error', 'Failed to update password. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -141,6 +154,20 @@ export default function SecuritySettingsScreen() {
                     </Button>
                 </Surface>
             </ScrollView>
+
+            <Portal>
+                <Dialog visible={feedback.visible} onDismiss={hideDialog} style={{ backgroundColor: theme.colors.surface, borderRadius: 12 }}>
+                    <Dialog.Title style={{ color: feedback.isError ? theme.colors.error : theme.colors.primary, fontWeight: 'bold' }}>
+                        {feedback.title}
+                    </Dialog.Title>
+                    <Dialog.Content>
+                        <Paragraph style={{ color: theme.colors.onSurface }}>{feedback.message}</Paragraph>
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={hideDialog} textColor={theme.colors.primary}>OK</Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
         </KeyboardAvoidingView>
     );
 }

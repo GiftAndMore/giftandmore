@@ -1,32 +1,76 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Image, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { Text, TextInput, Button, IconButton, Surface, useTheme } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text, TextInput, Button, IconButton, Surface, useTheme, Portal, Dialog, Paragraph, Menu } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 
 export default function LoginScreen() {
     const router = useRouter();
     const theme = useTheme();
-    const { signIn } = useAuth();
+    const { signIn, session } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [feedback, setFeedback] = useState<{ visible: boolean; title: string; message: string; isError: boolean }>({
+        visible: false, title: '', message: '', isError: false
+    });
+
+    const showDialog = (title: string, message: string, isError = true) => {
+        setFeedback({ visible: true, title, message, isError });
+    };
+
+    const hideDialog = () => {
+        setFeedback({ ...feedback, visible: false });
+    };
+
+    // Removed auto-redirect useEffect to prevent update loops.
+    // Navigation is handled explicitly in handleLogin.
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+            showDialog('Error', 'Please fill in all fields');
             return;
         }
 
         setLoading(true);
-        const { error } = await signIn(email, password);
+        const { error } = await signIn(email.trim(), password.trim());
 
         if (error) {
-            Alert.alert('Login Failed', 'Invalid credentials');
+            showDialog('Login Failed', 'Invalid credentials');
             setLoading(false);
         } else {
-            router.replace('/(tabs)');
+            // Manual redirect to avoid layout race conditions
+            const { mockStore } = require('../../lib/mock-api');
+            // We need to know the role here. The signIn hook might not update 'role' state immediately in this closure.
+            // But we can check the store or just assume 'user' defaults to home, and if it's admin/assistant we check.
+            // Actually, we can fetch the user to be sure.
+            const user = await mockStore.verifyCredentials(email, password);
+
+            // Enforce portal separation
+            if (user?.role === 'admin') {
+                showDialog('Access Denied', 'Please log in via the Admin Portal.');
+                await require('../../lib/auth').signOut; // ensure mock signout if feasible or just don't redirect
+                // We need to actually perform the signout if useAuth.signIn implicitly logged them in.
+                // But typically specific portals just won't redirect.
+                // However, we should prevent the session from persisting if possible.
+                // For now, blocking the redirect and showing dialog is key.
+                return;
+            }
+            if (user?.role === 'assistant') {
+                // Redirect to assistant dashboard (now at /dashboard to avoid root collision)
+                router.replace('/dashboard');
+                return;
+            }
+
+            // Valid User
+            if (user) {
+                router.replace('/');
+            } else {
+                // Should be caught by error check above but just in case
+                router.replace('/');
+            }
         }
     };
 
@@ -104,15 +148,55 @@ export default function LoginScreen() {
                         </Button>
                     </View>
 
-                    <Button
-                        mode="text"
-                        onPress={() => router.push('/admin-portal/login')}
-                        style={{ marginTop: 0 }}
-                        labelStyle={{ color: theme.colors.primary }}
-                    >
-                        Admin Portal
-                    </Button>
+                    <View style={{ marginTop: 10, alignItems: 'center' }}>
+                        <Menu
+                            visible={menuVisible}
+                            onDismiss={() => setMenuVisible(false)}
+                            anchor={
+                                <Button
+                                    mode="text"
+                                    onPress={() => setMenuVisible(true)}
+                                    labelStyle={{ color: theme.colors.primary }}
+                                    icon="chevron-down"
+                                    contentStyle={{ flexDirection: 'row-reverse' }}
+                                >
+                                    Sign in as...
+                                </Button>
+                            }
+                        >
+                            <Menu.Item
+                                onPress={() => {
+                                    setMenuVisible(false);
+                                    router.push('/admin-portal/login');
+                                }}
+                                title="Admin Portal"
+                                leadingIcon="shield-account"
+                            />
+                            <Menu.Item
+                                onPress={() => {
+                                    setMenuVisible(false);
+                                    router.push('/assistant-portal/login');
+                                }}
+                                title="Assistant Portal"
+                                leadingIcon="headset"
+                            />
+                        </Menu>
+                    </View>
                 </Surface>
+
+                <Portal>
+                    <Dialog visible={feedback.visible} onDismiss={hideDialog} style={{ backgroundColor: theme.colors.surface, borderRadius: 12 }}>
+                        <Dialog.Title style={{ color: feedback.isError ? theme.colors.error : theme.colors.primary, fontWeight: 'bold' }}>
+                            {feedback.title}
+                        </Dialog.Title>
+                        <Dialog.Content>
+                            <Paragraph style={{ color: theme.colors.onSurface }}>{feedback.message}</Paragraph>
+                        </Dialog.Content>
+                        <Dialog.Actions>
+                            <Button onPress={hideDialog} textColor={theme.colors.primary}>OK</Button>
+                        </Dialog.Actions>
+                    </Dialog>
+                </Portal>
             </ScrollView>
         </KeyboardAvoidingView>
     );

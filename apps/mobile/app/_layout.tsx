@@ -1,28 +1,18 @@
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot, Redirect } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '../lib/auth';
+import { CartProvider } from '../lib/CartContext';
 import { PaperProvider } from 'react-native-paper';
-import { lightTheme, darkTheme } from './theme';
-import { useEffect } from 'react';
+import { lightTheme, darkTheme } from '../lib/theme';
 import { ThemeProvider, useThemeContext } from '../lib/ThemeContext';
 
+// Tell expo-router that (tabs) is the default route group
+export const unstable_settings = {
+    initialRouteName: '(tabs)',
+};
+
 function RootLayoutNav() {
-    const { session, loading } = useAuth();
-    const segments = useSegments();
-    const router = useRouter();
-
-    useEffect(() => {
-        if (loading) return;
-
-        const inAuthGroup = segments[0] === 'auth';
-        const isGuestAllowed = segments[0] === 'custom-request' || segments[0] === 'chat' || segments[0] === 'gift-finder' || segments[0] === 'product' || segments[0] === 'admin-portal';
-
-        if (!session && !inAuthGroup && !isGuestAllowed) {
-            router.replace('/auth/login');
-        } else if (session && inAuthGroup) {
-            router.replace('/(tabs)');
-        }
-    }, [session, loading, segments]);
+    const { loading } = useAuth();
 
     if (loading) {
         return (
@@ -35,6 +25,10 @@ function RootLayoutNav() {
     return <Slot />;
 }
 
+import { AdminAuthProvider } from '../lib/admin-auth';
+
+// ...
+
 function RootLayoutContent() {
     const { themeMode } = useThemeContext();
     const currentTheme = themeMode === 'dark' ? darkTheme : lightTheme;
@@ -42,9 +36,13 @@ function RootLayoutContent() {
     return (
         <PaperProvider theme={currentTheme}>
             <AuthProvider>
-                <View style={{ flex: 1, backgroundColor: currentTheme.colors.background }}>
-                    <RootLayoutNav />
-                </View>
+                <CartProvider>
+                    <AdminAuthProvider>
+                        <View style={{ flex: 1, backgroundColor: currentTheme.colors.background }}>
+                            <RootLayoutNav />
+                        </View>
+                    </AdminAuthProvider>
+                </CartProvider>
             </AuthProvider>
         </PaperProvider>
     );

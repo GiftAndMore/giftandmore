@@ -91,6 +91,7 @@ export default function SupportDetailScreen() {
         try {
             const updated = await mockStore.updateConversation(conversation!.id, { status: 'resolved' });
             setConversation(prev => prev ? { ...prev, ...updated } : null);
+            loadData(); // Refresh to ensure all data is consistent
         } finally {
             setAssigning(false);
         }
@@ -127,42 +128,48 @@ export default function SupportDetailScreen() {
                     ))}
                     {assistants.length === 0 && <Menu.Item title="No assistants available" disabled />}
                 </Menu>
-                <IconButton icon="check-circle" iconColor={theme.colors.primary} onPress={handleResolve} />
+                {conversation.status !== 'resolved' && (
+                    <IconButton icon="check-circle" iconColor={theme.colors.primary} onPress={handleResolve} />
+                )}
             </View>
 
-            <FlatList
-                ref={flatListRef}
-                data={conversation.messages}
-                keyExtractor={item => item.id}
-                contentContainerStyle={{ padding: 16 }}
-                renderItem={({ item }) => {
-                    const isMe = item.sender_id === 'admin' || item.sender_id === adminUser?.id;
-                    const isSystem = item.sender_id === 'system';
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+            >
+                <FlatList
+                    ref={flatListRef}
+                    data={conversation.messages}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={{ padding: 16 }}
+                    renderItem={({ item }) => {
+                        const isMe = item.sender_id === 'admin' || item.sender_id === adminUser?.id;
+                        const isSystem = item.sender_id === 'system';
 
-                    if (isSystem) {
+                        if (isSystem) {
+                            return (
+                                <View style={{ alignItems: 'center', marginVertical: 8 }}>
+                                    <Text variant="bodySmall" style={{ color: theme.colors.outline }}>{item.text}</Text>
+                                </View>
+                            );
+                        }
+
                         return (
-                            <View style={{ alignItems: 'center', marginVertical: 8 }}>
-                                <Text variant="bodySmall" style={{ color: theme.colors.outline }}>{item.text}</Text>
+                            <View style={[
+                                styles.messageBubble,
+                                isMe ? styles.myMessage : styles.theirMessage,
+                                { backgroundColor: isMe ? theme.colors.primaryContainer : theme.colors.surfaceVariant }
+                            ]}>
+                                <Text style={{ color: isMe ? theme.colors.onPrimaryContainer : theme.colors.onSurfaceVariant }}>{item.text}</Text>
+                                <Text variant="labelSmall" style={{ alignSelf: 'flex-end', marginTop: 4, opacity: 0.7 }}>
+                                    {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </Text>
                             </View>
                         );
-                    }
+                    }}
+                />
 
-                    return (
-                        <View style={[
-                            styles.messageBubble,
-                            isMe ? styles.myMessage : styles.theirMessage,
-                            { backgroundColor: isMe ? theme.colors.primaryContainer : theme.colors.surfaceVariant }
-                        ]}>
-                            <Text style={{ color: isMe ? theme.colors.onPrimaryContainer : theme.colors.onSurfaceVariant }}>{item.text}</Text>
-                            <Text variant="labelSmall" style={{ alignSelf: 'flex-end', marginTop: 4, opacity: 0.7 }}>
-                                {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </Text>
-                        </View>
-                    );
-                }}
-            />
-
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={100}>
                 <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface }]}>
                     <TextInput
                         mode="outlined"
@@ -170,7 +177,8 @@ export default function SupportDetailScreen() {
                         value={newMessage}
                         onChangeText={setNewMessage}
                         style={{ flex: 1, backgroundColor: theme.colors.surface }}
-                        right={<TextInput.Icon icon="send" onPress={handleSendMessage} disabled={sending || !newMessage.trim()} />}
+                        right={<TextInput.Icon icon="send" onPress={handleSendMessage} disabled={sending || !newMessage.trim() || conversation.status === 'resolved'} />}
+                        editable={conversation.status !== 'resolved'}
                     />
                 </View>
             </KeyboardAvoidingView>

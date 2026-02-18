@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, TextInput, Button, useTheme, Switch, Checkbox, HelperText, Portal, Dialog, Paragraph } from 'react-native-paper';
+import { Text, TextInput, Button, useTheme, Switch, Checkbox, HelperText, Portal, Dialog, Paragraph, IconButton } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { mockStore } from '../../../lib/mock-api';
 import { AssistantTask } from '../../../lib/mock-api/types';
 
 const TASKS: { label: string; value: AssistantTask }[] = [
     { label: 'Live Agent Support', value: 'live_agent_support' },
-    { label: 'Manage Products', value: 'manage_products' },
+    { label: 'Manage Products (Edit/Delete)', value: 'manage_products' },
+    { label: 'Add Products', value: 'add_products' },
     { label: 'Update Orders', value: 'update_orders' },
     { label: 'Manage Banners', value: 'manage_banners' },
     { label: 'Manage Custom Requests', value: 'manage_custom_requests' },
@@ -22,22 +24,29 @@ export default function CreateAssistantScreen() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [selectedTasks, setSelectedTasks] = useState<AssistantTask[]>(['live_agent_support']);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [errorDialog, setErrorDialog] = useState<{ visible: boolean; title: string; message: string }>({ visible: false, title: '', message: '' });
     const [showCredentials, setShowCredentials] = useState(false);
-    const [createdCredentials, setCreatedCredentials] = useState({ email: '', password: '' });
+    const [createdCredentials, setCreatedCredentials] = useState<{ email?: string; password?: string }>({});
+
+    const showError = (title: string, message: string) => {
+        setErrorDialog({ visible: true, title, message });
+    };
 
     const handleCreate = async () => {
         if (!fullName || !email || !password || !confirmPassword) {
-            Alert.alert('Error', 'Please fill in all required fields');
+            showError('Error', 'Please fill in all required fields');
             return;
         }
 
         if (password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match');
+            showError('Error', 'Passwords do not match');
             return;
         }
 
         if (password.length < 6) {
-            Alert.alert('Error', 'Password must be at least 6 characters');
+            showError('Error', 'Password must be at least 6 characters');
             return;
         }
 
@@ -46,13 +55,14 @@ export default function CreateAssistantScreen() {
             await mockStore.createAssistant({
                 email,
                 full_name: fullName,
-                tasks: selectedTasks
+                tasks: selectedTasks,
+                password
             });
 
             setCreatedCredentials({ email, password });
             setShowCredentials(true);
         } catch (e) {
-            Alert.alert('Error', 'Failed to create assistant');
+            showError('Error', 'Failed to create assistant');
         } finally {
             setLoading(false);
         }
@@ -68,13 +78,18 @@ export default function CreateAssistantScreen() {
 
     const copyToClipboard = () => {
         // In a real app, implement Clipboard.setString
+        // For copy success, we can use a Toast or small dialog, but the user didn't ask to change this specifically yet.
+        // We'll keep it simple for now or use the same error dialog for "Success" if needed, but this is a copy action.
         Alert.alert('Copied', `Email: ${createdCredentials.email}\nPassword: ${createdCredentials.password}`);
     };
 
     return (
         <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <View style={styles.header}>
-                <Text variant="headlineMedium" style={{ fontWeight: 'bold', color: theme.colors.onBackground }}>Create Assistant</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <IconButton icon="arrow-left" size={24} onPress={() => router.back()} style={{ marginLeft: -12 }} />
+                    <Text variant="headlineMedium" style={{ fontWeight: 'bold', color: theme.colors.onBackground }}>Create Assistant</Text>
+                </View>
                 <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
                     Create a new account for support staff or managers.
                 </Text>
@@ -106,7 +121,8 @@ export default function CreateAssistantScreen() {
                     value={password}
                     onChangeText={setPassword}
                     mode="outlined"
-                    secureTextEntry
+                    secureTextEntry={!showPassword}
+                    right={<TextInput.Icon icon={showPassword ? "eye-off" : "eye"} onPress={() => setShowPassword(!showPassword)} />}
                     style={[styles.input, { backgroundColor: theme.colors.surface }]}
                     textColor={theme.colors.onSurface}
                 />
@@ -116,7 +132,8 @@ export default function CreateAssistantScreen() {
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                     mode="outlined"
-                    secureTextEntry
+                    secureTextEntry={!showConfirmPassword}
+                    right={<TextInput.Icon icon={showConfirmPassword ? "eye-off" : "eye"} onPress={() => setShowConfirmPassword(!showConfirmPassword)} />}
                     style={[styles.input, { backgroundColor: theme.colors.surface }]}
                     textColor={theme.colors.onSurface}
                 />
@@ -149,20 +166,56 @@ export default function CreateAssistantScreen() {
             </View>
 
             <Portal>
-                <Dialog visible={showCredentials} onDismiss={() => { setShowCredentials(false); router.back(); }} style={{ backgroundColor: theme.colors.surface }}>
-                    <Dialog.Title style={{ color: theme.colors.onSurface }}>Account Created</Dialog.Title>
-                    <Dialog.Content>
-                        <Paragraph style={{ color: theme.colors.onSurfaceVariant }}>
-                            Please share these credentials with the assistant immediately. The password will not be shown again.
-                        </Paragraph>
-                        <View style={[styles.credentialsBox, { backgroundColor: theme.colors.secondaryContainer }]}>
-                            <Text variant="bodyLarge" style={{ fontWeight: 'bold', color: theme.colors.onSecondaryContainer }}>Email: {createdCredentials.email}</Text>
-                            <Text variant="titleLarge" style={{ fontWeight: 'bold', marginTop: 8, color: theme.colors.primary }}>Password: {createdCredentials.password}</Text>
+                <Dialog visible={showCredentials} onDismiss={() => { setShowCredentials(false); router.back(); }} style={{ backgroundColor: theme.colors.surface, borderRadius: 20 }}>
+                    <Dialog.Content style={{ alignItems: 'center', paddingVertical: 24 }}>
+                        <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.dark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                            <MaterialCommunityIcons name="check-circle" size={40} color="#10B981" />
+                        </View>
+                        <Text variant="headlineSmall" style={{ fontWeight: 'bold', textAlign: 'center', color: theme.colors.onSurface }}>Account Created!</Text>
+                        <Text variant="bodyMedium" style={{ textAlign: 'center', color: theme.colors.onSurfaceVariant, marginTop: 8, marginBottom: 24 }}>
+                            Please save these credentials securely. The password will not be shown again.
+                        </Text>
+
+                        <View style={{ width: '100%', backgroundColor: theme.colors.secondaryContainer, borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: theme.colors.primary }}>
+                            <View style={{ marginBottom: 12 }}>
+                                <Text variant="labelMedium" style={{ color: theme.colors.onSecondaryContainer, opacity: 0.7 }}>Email Address</Text>
+                                <Text variant="bodyLarge" style={{ color: theme.colors.onSecondaryContainer, fontWeight: 'bold' }} selectable>{createdCredentials.email}</Text>
+                            </View>
+                            <View>
+                                <Text variant="labelMedium" style={{ color: theme.colors.onSecondaryContainer, opacity: 0.7 }}>Password</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <Text variant="headlineSmall" style={{ color: theme.colors.primary, fontWeight: 'bold' }} selectable>{createdCredentials.password}</Text>
+                                    <IconButton
+                                        icon="content-copy"
+                                        iconColor={theme.colors.primary}
+                                        size={20}
+                                        onPress={copyToClipboard}
+                                        style={{ margin: 0 }}
+                                    />
+                                </View>
+                            </View>
                         </View>
                     </Dialog.Content>
+                    <Dialog.Actions style={{ justifyContent: 'center', paddingBottom: 24 }}>
+                        <Button
+                            mode="contained"
+                            onPress={() => { setShowCredentials(false); router.back(); }}
+                            style={{ flex: 1, marginHorizontal: 16 }}
+                        >
+                            Done & Close
+                        </Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
+
+            <Portal>
+                <Dialog visible={errorDialog.visible} onDismiss={() => setErrorDialog({ ...errorDialog, visible: false })} style={{ backgroundColor: theme.colors.surface, borderRadius: 12 }}>
+                    <Dialog.Title style={{ color: theme.colors.error, fontWeight: 'bold' }}>{errorDialog.title}</Dialog.Title>
+                    <Dialog.Content>
+                        <Paragraph style={{ color: theme.colors.onSurface }}>{errorDialog.message}</Paragraph>
+                    </Dialog.Content>
                     <Dialog.Actions>
-                        <Button onPress={copyToClipboard}>Copy</Button>
-                        <Button onPress={() => { setShowCredentials(false); router.back(); }}>Done</Button>
+                        <Button onPress={() => setErrorDialog({ ...errorDialog, visible: false })} textColor={theme.colors.primary}>OK</Button>
                     </Dialog.Actions>
                 </Dialog>
             </Portal>

@@ -1,9 +1,34 @@
-import { User, Product, Order, Banner, CustomRequest, Conversation, ActivityEvent } from './types';
+import { User, Product, Order, Banner, CustomRequest, Conversation, ActivityEvent, AssistantActivityLog } from './types';
+
+// Helper: generate relative timestamps
+const minutesAgo = (m: number) => new Date(Date.now() - m * 60 * 1000).toISOString();
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3600 * 1000).toISOString();
+
+const SARAH_ACTIVITY: AssistantActivityLog[] = [
+    { id: 'alog-1', action: 'Replied to support chat', details: 'Conversation with Jane Smith about delivery address', timestamp: minutesAgo(3) },
+    { id: 'alog-2', action: 'Updated order status', details: 'Order #ord-1002 → Processing', timestamp: minutesAgo(25) },
+    { id: 'alog-3', action: 'Joined support chat', details: 'Picked up conversation conv-2', timestamp: minutesAgo(40) },
+    { id: 'alog-4', action: 'Logged in', details: 'Session started', timestamp: hoursAgo(1) },
+];
+
+const MIKE_ACTIVITY: AssistantActivityLog[] = [
+    { id: 'alog-5', action: 'Updated product', details: 'Baby Hamper sales price changed to ₦25,000', timestamp: hoursAgo(4) },
+    { id: 'alog-6', action: 'Updated banner', details: 'Valentine\'s Special banner reactivated', timestamp: hoursAgo(5) },
+    { id: 'alog-7', action: 'Logged in', details: 'Session started', timestamp: hoursAgo(5) },
+];
+
+const TEST_ACTIVITY: AssistantActivityLog[] = [
+    { id: 'alog-8', action: 'Updated order status', details: 'Order #ord-1004 → Confirmed', timestamp: minutesAgo(10) },
+    { id: 'alog-9', action: 'Reviewed custom request', details: 'Baby Shower request from John Doe', timestamp: minutesAgo(30) },
+    { id: 'alog-10', action: 'Added product', details: 'New product submission: Party Gift Box', timestamp: hoursAgo(2) },
+    { id: 'alog-11', action: 'Logged in', details: 'Session started', timestamp: hoursAgo(3) },
+];
 
 export const MOCK_USERS: User[] = [
     { id: 'u1', email: 'user@admin.com', full_name: 'Super Admin', role: 'admin', is_banned: false, created_at: '2023-01-01T00:00:00Z', avatar: 'https://i.pravatar.cc/150?u=admin' },
-    { id: 'u2', email: 'sarah@assistant.com', full_name: 'Sarah Support', role: 'assistant', is_banned: false, created_at: '2023-02-01T00:00:00Z', assistant_tasks: ['live_agent_support', 'update_orders'], assistant_status: 'online', avatar: 'https://i.pravatar.cc/150?u=sarah' },
-    { id: 'u3', email: 'mike@assistant.com', full_name: 'Mike Manager', role: 'assistant', is_banned: false, created_at: '2023-02-15T00:00:00Z', assistant_tasks: ['manage_products', 'manage_banners'], assistant_status: 'busy', avatar: 'https://i.pravatar.cc/150?u=mike' },
+    { id: 'u2', email: 'sarah@assistant.com', full_name: 'Sarah Support', role: 'assistant', is_banned: false, created_at: '2023-02-01T00:00:00Z', assistant_tasks: ['live_agent_support', 'update_orders'], assistant_status: 'online', assistant_enabled: true, last_active: minutesAgo(3), activity_log: SARAH_ACTIVITY, avatar: 'https://i.pravatar.cc/150?u=sarah' },
+    { id: 'u3', email: 'mike@assistant.com', full_name: 'Mike Manager', role: 'assistant', is_banned: false, created_at: '2023-02-15T00:00:00Z', assistant_tasks: ['manage_products', 'manage_banners'], assistant_status: 'offline', assistant_enabled: true, last_active: hoursAgo(4), activity_log: MIKE_ACTIVITY, avatar: 'https://i.pravatar.cc/150?u=mike' },
+    { id: 'u_test_va', email: 'assistance@admin.com', full_name: 'Test Assistant', role: 'assistant', is_banned: false, created_at: '2023-02-16T00:00:00Z', assistant_tasks: ['live_agent_support', 'manage_products', 'add_products', 'update_orders', 'manage_banners', 'manage_custom_requests'], assistant_status: 'online', avatar: 'https://ui-avatars.com/api/?name=Test+Assistant&background=0D8ABC&color=fff', assistant_enabled: true, last_active: minutesAgo(10), activity_log: TEST_ACTIVITY },
     { id: 'u4', email: 'john.doe@gmail.com', full_name: 'John Doe', role: 'user', is_banned: false, created_at: '2023-03-10T10:00:00Z', avatar: 'https://i.pravatar.cc/150?u=john' },
     { id: 'u5', email: 'jane.smith@yahoo.com', full_name: 'Jane Smith', role: 'user', is_banned: false, created_at: '2023-03-12T14:30:00Z', avatar: 'https://i.pravatar.cc/150?u=jane' },
     { id: 'u6', email: 'banned.guy@bad.com', full_name: 'Banned Guy', role: 'user', is_banned: true, created_at: '2023-04-01T09:00:00Z' },
@@ -11,16 +36,16 @@ export const MOCK_USERS: User[] = [
 ];
 
 export const MOCK_PRODUCTS: Product[] = [
-    { id: 'p1', name: 'Luxury Rose Box', description: 'Red roses in a velvet box.', price: 45000, category: 'Flowers', tags: ['Romance', 'Anniversary', 'Women'], images: ['https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500'], is_active: true, stock: 10 },
-    { id: 'p2', name: 'Teddy Bear XL', description: 'Giant cuddly teddy bear.', price: 25000, category: 'Toys', tags: ['Romance', 'Birthday', 'Baby', 'Kids'], images: ['https://images.unsplash.com/photo-1559454403-b8fb9850601f?w=500'], is_active: true, stock: 5 },
-    { id: 'p3', name: 'Gourmet Chocolate Set', description: 'Assorted swiss chocolates.', price: 15000, category: 'Food', tags: ['Birthday', 'Thank You'], images: ['https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=500'], is_active: true, stock: 20 },
-    { id: 'p4', name: 'Spa Gift Basket', description: 'Relaxing spa essentials.', price: 35000, category: 'Wellness', tags: ['Self Care', 'Women', 'Mothers Day'], images: ['https://images.unsplash.com/photo-1515377905703-c4788e51af15?w=500'], is_active: true, stock: 8 },
-    { id: 'p5', name: 'Men\'s Grooming Kit', description: 'Beard oil, comb, and wash.', price: 20000, category: 'Wellness', tags: ['Men', 'Fathers Day'], images: ['https://images.unsplash.com/photo-1621600411688-4be93cd68504?w=500'], is_active: true, stock: 15 },
-    { id: 'p6', name: 'Custom Engraved Watch', description: 'Classic timepiece.', price: 85000, category: 'Accessories', tags: ['Men', 'Anniversary', 'Wedding'], images: ['https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=500'], is_active: true, stock: 3 },
-    { id: 'p7', name: 'Baby Hamper', description: 'Essentials for newborn.', price: 30000, category: 'Baby', tags: ['Baby', 'Shower'], images: ['https://images.unsplash.com/photo-1555255707-c07966088b7b?w=500'], is_active: true, stock: 12 },
-    { id: 'p8', name: 'Perfume Gift Set', description: 'Designer fragrance.', price: 55000, category: 'Beauty', tags: ['Women', 'Romance'], images: ['https://images.unsplash.com/photo-1541643600914-78b084683601?w=500'], is_active: true, stock: 6 },
-    { id: 'p9', name: 'Corporate Hamper', description: 'Office snacks and wine.', price: 60000, category: 'Food', tags: ['Corporate', 'Office event'], images: ['https://images.unsplash.com/photo-1595155829624-94943714b22c?w=500'], is_active: true, stock: 20 },
-    { id: 'p10', name: 'Wedding Favors (Bulk)', description: '50pcs mini candles.', price: 75000, category: 'Decor', tags: ['Wedding', 'Church event'], images: ['https://images.unsplash.com/photo-1566679056673-9828d15f2178?w=500'], is_active: true, stock: 2 },
+    { id: 'p1', name: 'Luxury Rose Box', description: 'Red roses in a velvet box.', price: 45000, category: ['Flowers'], tags: ['Romance', 'Anniversary', 'Women'], images: ['https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500'], is_active: true, stock: 10 },
+    { id: 'p2', name: 'Teddy Bear XL', description: 'Giant cuddly teddy bear.', price: 25000, category: ['Toys'], tags: ['Romance', 'Birthday', 'Baby', 'Kids'], images: ['https://images.unsplash.com/photo-1559454403-b8fb9850601f?w=500'], is_active: true, stock: 5 },
+    { id: 'p3', name: 'Gourmet Chocolate Set', description: 'Assorted swiss chocolates.', price: 15000, category: ['Food'], tags: ['Birthday', 'Thank You'], images: ['https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=500'], is_active: true, stock: 20 },
+    { id: 'p4', name: 'Spa Gift Basket', description: 'Relaxing spa essentials.', price: 35000, category: ['Wellness'], tags: ['Self Care', 'Women', 'Mothers Day'], images: ['https://images.unsplash.com/photo-1515377905703-c4788e51af15?w=500'], is_active: true, stock: 8 },
+    { id: 'p5', name: 'Men\'s Grooming Kit', description: 'Beard oil, comb, and wash.', price: 20000, category: ['Wellness'], tags: ['Men', 'Fathers Day'], images: ['https://images.unsplash.com/photo-1621600411688-4be93cd68504?w=500'], is_active: true, stock: 15 },
+    { id: 'p6', name: 'Custom Engraved Watch', description: 'Classic timepiece.', price: 85000, category: ['Accessories'], tags: ['Men', 'Anniversary', 'Wedding'], images: ['https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=500'], is_active: true, stock: 3 },
+    { id: 'p7', name: 'Baby Hamper', description: 'Essentials for newborn.', price: 30000, sales_price: 25000, category: ['Baby'], tags: ['Baby', 'Shower'], images: ['https://images.unsplash.com/photo-1555255707-c07966088b7b?w=500'], is_active: true, stock: 12 },
+    { id: 'p8', name: 'Perfume Gift Set', description: 'Designer fragrance.', price: 55000, category: ['Beauty'], tags: ['Women', 'Romance'], images: ['https://images.unsplash.com/photo-1541643600914-78b084683601?w=500'], is_active: true, stock: 6 },
+    { id: 'p9', name: 'Corporate Hamper', description: 'Office snacks and wine.', price: 60000, category: ['Food'], tags: ['Corporate', 'Office event'], images: ['https://images.unsplash.com/photo-1595155829624-94943714b22c?w=500'], is_active: true, stock: 20 },
+    { id: 'p10', name: 'Wedding Favors (Bulk)', description: '50pcs mini candles.', price: 75000, category: ['Decor'], tags: ['Wedding', 'Church event'], images: ['https://images.unsplash.com/photo-1566679056673-9828d15f2178?w=500'], is_active: true, stock: 2 },
     // more products...
 ];
 
@@ -45,12 +70,18 @@ export const MOCK_ORDERS: Order[] = [
         items: [{ product_id: 'p3', product_name: 'Gourmet Chocolate Set', quantity: 1, price: 15000, image: MOCK_PRODUCTS[2].images[0] }],
         timeline: [{ status: 'placed', date: '2023-05-20T14:00:00Z' }, { status: 'delivered', date: '2023-05-22T16:00:00Z' }]
     },
+    {
+        id: 'ord-1004', user_id: 'u4', user_name: 'John Doe', total_amount: 85000, status: 'placed', created_at: new Date().toISOString(), shipping_address: '789 Victoria Island', recipient_name: 'John Doe', recipient_phone: '1234567890',
+        items: [{ product_id: 'p6', product_name: 'Custom Engraved Watch', quantity: 1, price: 85000, image: MOCK_PRODUCTS[5].images[0] }],
+        timeline: [{ status: 'placed', date: new Date().toISOString(), note: 'Payment successful, awaiting confirmation' }]
+    },
     // more orders...
 ];
 
 export const MOCK_REQUESTS: CustomRequest[] = [
     { id: 'req-1', user_id: 'u4', user_name: 'John Doe', purpose: 'Wedding Anniversary', budget: '100000', description: 'I want a huge bouquet of 100 roses and a diamond necklace replica.', recipient_details: 'Wife', status: 'new', created_at: '2023-06-02T08:00:00Z' },
     { id: 'req-2', user_id: 'u5', user_name: 'Jane Smith', purpose: 'Corporate', budget: '500000', description: '50 gift bags for office party.', recipient_details: 'Staff', status: 'quoted', quote_amount: 480000, quote_message: 'We can do this with premium snacks.', created_at: '2023-06-01T11:00:00Z' },
+    { id: 'req-3', user_id: 'u4', user_name: 'John Doe', purpose: 'Baby Shower', budget: '75000', description: 'A neutral gender baby hamper with organic products.', recipient_details: 'Sister', status: 'in_review', created_at: new Date().toISOString() },
 ];
 
 export const MOCK_CONVERSATIONS: Conversation[] = [

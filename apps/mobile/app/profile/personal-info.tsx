@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { Text, TextInput, Button, Avatar, useTheme, Surface, IconButton } from 'react-native-paper';
+import { Text, TextInput, Button, Avatar, useTheme, Surface, IconButton, Portal, Dialog } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 
 export default function PersonalInfoScreen() {
@@ -21,13 +21,14 @@ export default function PersonalInfoScreen() {
     });
 
     const [isSaving, setIsSaving] = useState(false);
+    const [dialogVisible, setDialogVisible] = useState(false);
 
     const handleSave = async () => {
         setIsSaving(true);
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 1500));
         setIsSaving(false);
-        Alert.alert('Success', 'Profile updated successfully');
+        setDialogVisible(true);
     };
 
     return (
@@ -177,7 +178,19 @@ export default function PersonalInfoScreen() {
                     </Button>
                 </Surface>
             </ScrollView>
-        </KeyboardAvoidingView>
+
+            <Portal>
+                <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)} style={{ backgroundColor: theme.colors.surface }}>
+                    <Dialog.Title style={{ color: theme.colors.onSurface }}>Success</Dialog.Title>
+                    <Dialog.Content>
+                        <Text style={{ color: theme.colors.onSurfaceVariant }}>Profile updated successfully</Text>
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={() => setDialogVisible(false)}>OK</Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
+        </KeyboardAvoidingView >
     );
 }
 

@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
-import { Text, TextInput, Button, HelperText, Appbar, Surface, Portal, Modal, List, Divider, useTheme } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { Text, TextInput, Button, HelperText, Appbar, Surface, Portal, Modal, List, Divider, useTheme, Dialog, Paragraph } from 'react-native-paper';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import { NIGERIAN_LOCATIONS } from '../../lib/locations';
+import { useCart } from '../../lib/CartContext';
 
 // Schema
 const schema = z.object({
     recipientName: z.string().min(1, { message: 'Recipient Name is required' }),
     recipientEmail: z.string().email({ message: 'Invalid email' }),
     recipientPhone: z.string().min(10, { message: 'Phone number is required' }),
-    houseNumber: z.string().min(1, { message: 'House/Building number is required' }),
+    houseNumber: z.string().min(6, { message: 'House/Building number is required' }),
     city: z.string().min(1, { message: 'City is required' }),
     lga: z.string().min(1, { message: 'Local Government Area is required' }),
     state: z.string().min(1, { message: 'State is required' }),
@@ -22,6 +23,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function SendGiftScreen() {
+    // ... hook setup remains same
     const { productId } = useLocalSearchParams();
     const router = useRouter();
     const theme = useTheme();
@@ -33,7 +35,30 @@ export default function SendGiftScreen() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [stateModalVisible, setStateModalVisible] = useState(false);
     const [lgaModalVisible, setLgaModalVisible] = useState(false);
+    const [feedback, setFeedback] = useState<{ visible: boolean; title: string; message: string; isError: boolean }>({
+        visible: false, title: '', message: '', isError: false
+    });
 
+    const showDialog = (title: string, message: string, isError = true) => {
+        setFeedback({ visible: true, title, message, isError });
+    };
+
+    const hideDialog = () => {
+        setFeedback({ ...feedback, visible: false });
+    };
+
+    // ... watch variables remain same
+    const { items, cartTotal, clearCart } = useCart();
+
+    // If we have a specific productId from params, we could filter for it, 
+    // but for now let's assume checkout is for the whole cart if no specific ID is enforced,
+    // or just use the whole cart context.
+    // The previous flow pushed a single productId. 
+    // Let's use the cartTotal from context if available, otherwise fallback.
+
+    const finalAmount = cartTotal > 0 ? cartTotal : 5000; // Fallback or use context
+
+    // ... watch variables remain same
     const selectedState = watch('state');
     const availableStates = Object.keys(NIGERIAN_LOCATIONS);
     const availableLGAs = selectedState ? (NIGERIAN_LOCATIONS as any)[selectedState] : [];
@@ -41,22 +66,22 @@ export default function SendGiftScreen() {
     const onSubmit = async (data: FormData) => {
         setIsSubmitting(true);
         try {
-            // Mocking the order creation as requested previously
-            console.log('Order Data:', data);
-
-            // Simulate API delay
+            // ... logic remains same
+            console.log('Order Data:', data, 'Items:', items);
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            // Redirect to Payment Screen
+            // Generate order ID
+            const orderId = `ORD-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
             router.push({
                 pathname: '/checkout/payment',
                 params: {
-                    orderId: `MOCK-${Math.random().toString(36).substr(2, 9)}`,
-                    amount: 50.00 // Fixed for now, can be calculated
+                    orderId: orderId,
+                    amount: finalAmount
                 }
             });
         } catch (err: any) {
-            Alert.alert('Error', 'Failed to process checkout. Please try again.');
+            showDialog('Error', 'Failed to process checkout. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -76,7 +101,7 @@ export default function SendGiftScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-            {/* Header */}
+            {/* ... Header and ScrollView Content remain same until LGA Selector onPress ... */}
             <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Button icon="arrow-left" textColor="white" onPress={() => router.back()} style={{ minWidth: 0, padding: 0, margin: 0 }}>{''}</Button>
@@ -195,7 +220,7 @@ export default function SendGiftScreen() {
                             <TouchableOpacity
                                 onPress={() => {
                                     if (!selectedState) {
-                                        Alert.alert('Notice', 'Please select a State first');
+                                        showDialog('Notice', 'Please select a State first');
                                         return;
                                     }
                                     setLgaModalVisible(true);
@@ -276,7 +301,7 @@ export default function SendGiftScreen() {
                 <Modal
                     visible={stateModalVisible}
                     onDismiss={() => setStateModalVisible(false)}
-                    contentContainerStyle={styles.modalContent}
+                    contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
                 >
                     <Text variant="titleLarge" style={styles.modalTitle}>Select State</Text>
                     <Divider />
@@ -300,7 +325,7 @@ export default function SendGiftScreen() {
                 <Modal
                     visible={lgaModalVisible}
                     onDismiss={() => setLgaModalVisible(false)}
-                    contentContainerStyle={styles.modalContent}
+                    contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
                 >
                     <Text variant="titleLarge" style={styles.modalTitle}>Select LGA</Text>
                     <Divider />
@@ -318,6 +343,18 @@ export default function SendGiftScreen() {
                         ))}
                     </ScrollView>
                 </Modal>
+
+                <Dialog visible={feedback.visible} onDismiss={hideDialog} style={{ backgroundColor: theme.colors.surface, borderRadius: 12 }}>
+                    <Dialog.Title style={{ color: feedback.isError ? theme.colors.error : theme.colors.primary, fontWeight: 'bold' }}>
+                        {feedback.title}
+                    </Dialog.Title>
+                    <Dialog.Content>
+                        <Paragraph style={{ color: theme.colors.onSurface }}>{feedback.message}</Paragraph>
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={hideDialog} textColor={theme.colors.primary}>OK</Button>
+                    </Dialog.Actions>
+                </Dialog>
             </Portal>
         </KeyboardAvoidingView>
     );
@@ -344,7 +381,6 @@ const styles = StyleSheet.create({
     inputOutline: { borderRadius: 12 },
     button: { borderRadius: 12, backgroundColor: '#6D28D9', marginTop: 10, marginBottom: 20 },
     modalContent: {
-        backgroundColor: 'white',
         margin: 20,
         borderRadius: 20,
         padding: 10,
@@ -356,6 +392,5 @@ const styles = StyleSheet.create({
     },
     listItemText: {
         fontSize: 16,
-        color: '#374151',
     }
 });
