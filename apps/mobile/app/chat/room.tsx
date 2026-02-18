@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ChatMediaAttachment from '../../components/ChatMediaAttachment';
 
 const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL!, process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!);
+import { mockStore } from '../../lib/mock-api';
 
 const BOT_OPTIONS = [
     { label: "Request a custom gift", value: "custom_request" },
@@ -56,17 +57,33 @@ export default function ChatRoom() {
             const { data: { user } } = await supabase.auth.getUser();
             const userId = user?.id || '00000000-0000-0000-0000-000000000001';
 
-            if (String(convId).startsWith('mock')) {
+            if (String(convId).startsWith('mock') || String(convId).startsWith('conv-')) {
                 setActiveConvId(convId as string);
-                setMessages([
-                    {
-                        id: 'welcome-1',
-                        sender_type: 'bot',
-                        content: "Hello! Welcome to our Support. This is a Demo Chat Mode. How can we help you today? Please select an option below:",
-                        created_at: new Date().toISOString()
+                const mockConv = await mockStore.getConversation(convId as string);
+                if (mockConv) {
+                    const formattedMessages = mockConv.messages.map(m => ({
+                        id: m.id,
+                        sender_type: m.sender_id === userId ? 'user' : (m.sender_id === '00000000-0000-0000-0000-000000000000' ? 'bot' : 'agent'),
+                        content: m.text,
+                        created_at: m.created_at,
+                        message_attachments: [] // Mock store doesn't support attachments yet
+                    }));
+                    setMessages(formattedMessages.reverse()); // FlatList is inverted
+                    if (formattedMessages.length > 0 && formattedMessages[0].content.includes("Please select an option below")) {
+                        setShowOptions(true);
                     }
-                ]);
-                setShowOptions(true);
+                } else {
+                    // Fallback for non-persisted mock IDs
+                    setMessages([
+                        {
+                            id: 'welcome-1',
+                            sender_type: 'bot',
+                            content: "Hello! Welcome to our Support. This is a Demo Chat Mode. How can we help you today? Please select an option below:",
+                            created_at: new Date().toISOString()
+                        }
+                    ]);
+                    setShowOptions(true);
+                }
                 return;
             }
 
@@ -149,7 +166,7 @@ export default function ChatRoom() {
         if ((!text.trim() && !attachmentUrl) || !activeConvId) return;
 
         // Mock mode handling
-        if (String(activeConvId).startsWith('mock')) {
+        if (String(activeConvId).startsWith('mock') || String(activeConvId).startsWith('conv-')) {
             const newMessage = {
                 id: `local-${Date.now()}`,
                 conversation_id: activeConvId,
@@ -158,6 +175,11 @@ export default function ChatRoom() {
                 created_at: new Date().toISOString(),
                 message_attachments: attachmentUrl ? [{ id: 'att-1', path: attachmentUrl }] : []
             };
+
+            // Persist to Mock Store if it's a known conversation
+            const mockUserId = senderType === 'user' ? 'u-demo' : '00000000-0000-0000-0000-000000000000';
+            await mockStore.addMessage(activeConvId, text, mockUserId);
+
             setMessages(prev => [newMessage, ...prev]);
             if (senderType === 'user') {
                 setInputText('');

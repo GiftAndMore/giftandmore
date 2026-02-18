@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { createClient } from '@supabase/supabase-js';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { mockStore } from '../../lib/mock-api';
 
 const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL!, process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -22,13 +23,37 @@ export default function ChatList() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data } = await supabase
+        let allConversations: any[] = [];
+
+        // 1. Fetch from Supabase
+        const { data: supabaseData } = await supabase
             .from('conversations')
             .select('*')
-            .eq('user_id', user.id)
-            .order('updated_at', { ascending: false });
+            .eq('user_id', user.id);
 
-        if (data) setConversations(data);
+        if (supabaseData) {
+            allConversations = [...supabaseData];
+        }
+
+        // 2. Fetch from Mock Store (Demo Mode)
+        const mockData = await mockStore.getConversations();
+        const userMockData = mockData.filter(c => c.user_id === user.id);
+
+        // Merge and uniquely identify by ID (though they shouldn't overlap if IDs are distinct)
+        const merged = [...allConversations];
+        userMockData.forEach(mc => {
+            if (!merged.find(c => c.id === mc.id)) {
+                merged.push({
+                    ...mc,
+                    updated_at: (mc as any).last_message_at || (mc as any).created_at // Normalize for sorting
+                });
+            }
+        });
+
+        // 3. Sort by updated_at
+        merged.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+        setConversations(merged);
     }
 
     const onRefresh = async () => {
@@ -93,9 +118,16 @@ export default function ChatList() {
                     />
                     <View style={styles.cardContent}>
                         <View style={styles.cardHeader}>
-                            <Text variant="titleMedium" style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>
-                                {item.title || 'Support Chat'}
-                            </Text>
+                            <View style={{ flex: 1 }}>
+                                <Text variant="titleMedium" style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>
+                                    {item.title || 'Support Chat'}
+                                </Text>
+                                {item.status === 'pending' && (
+                                    <Surface style={[styles.statusBadge, { backgroundColor: theme.colors.secondaryContainer }]} elevation={0}>
+                                        <Text variant="labelSmall" style={{ color: theme.colors.onSecondaryContainer }}>Pending Review</Text>
+                                    </Surface>
+                                )}
+                            </View>
                             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                                 {new Date(item.updated_at).toLocaleDateString()}
                             </Text>
@@ -181,6 +213,13 @@ const styles = StyleSheet.create({
         right: 20,
         bottom: 20,
         borderRadius: 28,
+    },
+    statusBadge: {
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginTop: 4,
     },
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
 });

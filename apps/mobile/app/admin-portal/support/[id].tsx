@@ -4,12 +4,14 @@ import { Text, TextInput, Button, useTheme, Card, IconButton, ActivityIndicator,
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { mockStore, Conversation, User } from '../../../lib/mock-api';
 import { useAdminAuth } from '../../../lib/admin-auth';
+import { useFeedback } from '../../../lib/FeedbackContext';
 
 export default function SupportDetailScreen() {
     const { id } = useLocalSearchParams();
     const theme = useTheme();
     const router = useRouter();
     const { adminUser } = useAdminAuth();
+    const { showAlert } = useFeedback();
 
     const [loading, setLoading] = useState(true);
     const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -37,7 +39,7 @@ export default function SupportDetailScreen() {
                 setConversation(convData);
                 setAssistants(usersData.filter(u => u.role === 'assistant' && u.assistant_enabled));
             } else {
-                Alert.alert('Error', 'Conversation not found');
+                showAlert('Error', 'Conversation not found', undefined, 'error');
                 router.back();
             }
         } catch (e) {
@@ -56,7 +58,7 @@ export default function SupportDetailScreen() {
             setNewMessage('');
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         } catch (e) {
-            Alert.alert('Error', 'Failed to send message');
+            showAlert('Error', 'Failed to send message', undefined, 'error');
         } finally {
             setSending(false);
         }
@@ -71,9 +73,9 @@ export default function SupportDetailScreen() {
                 status: 'assigned'
             });
             setConversation(prev => prev ? { ...prev, ...updated } : null);
-            Alert.alert('Success', 'Conversation assigned');
+            showAlert('Success', 'Conversation assigned', undefined, 'success');
         } catch (e) {
-            Alert.alert('Error', 'Failed to assign conversation');
+            showAlert('Error', 'Failed to assign conversation', undefined, 'error');
         } finally {
             setAssigning(false);
         }
@@ -83,7 +85,7 @@ export default function SupportDetailScreen() {
         // "Join" just means the admin participates, but maybe we want to assign it to them or mark as 'resolved'?
         // For now, let's just mark it as assigned to 'admin' (if we had an admin ID) or just keep it as is but admin sends messages.
         // The user asked to "join the conversation".
-        Alert.alert('Joined', 'You can now reply directly to the user.');
+        showAlert('Joined', 'You can now reply directly to the user.', undefined, 'success');
     };
 
     const handleResolve = async () => {

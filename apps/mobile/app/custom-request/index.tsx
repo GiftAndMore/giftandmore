@@ -6,9 +6,11 @@ import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../lib/auth';
+import { useFeedback } from '../../lib/FeedbackContext';
 import { createClient } from '@supabase/supabase-js';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { mockStore } from '../../lib/mock-api';
 
 const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL!, process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -23,6 +25,7 @@ export default function CustomRequest() {
     const router = useRouter();
     const theme = useTheme();
     const { session } = useAuth();
+    const { showAlert } = useFeedback();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { control, handleSubmit, formState: { errors } } = useForm({
@@ -31,11 +34,10 @@ export default function CustomRequest() {
 
     const onSubmit = async (data: any) => {
         setIsSubmitting(true);
-        try {
-            const { data: userData } = await supabase.auth.getUser();
-            const user = userData?.user;
-            const userId = user?.id || '00000000-0000-0000-0000-000000000001';
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData?.user?.id || '00000000-0000-0000-0000-000000000001';
 
+        try {
             // 1. Create Conversation
             const { data: conv, error: convError } = await supabase
                 .from('conversations')
@@ -71,16 +73,27 @@ export default function CustomRequest() {
                     sender_type: 'bot'
                 });
 
-            Alert.alert('Request Sent', 'Your custom request has been submitted. You can track its progress in the support chat.', [
+            showAlert('Request Sent', 'Your custom request has been submitted. You can track its progress in the support chat.', [
                 { text: 'Go to Chat', onPress: () => router.push({ pathname: '/chat/room', params: { conversationId: conv.id } }) }
-            ]);
+            ], 'success');
         } catch (e: any) {
             console.warn('Submission to Supabase failed (Demo Mode triggered):', e);
-            const mockConvId = `mock-custom-${Date.now()}`;
 
-            Alert.alert('Request Sent (Demo Mode)', 'Your custom request has been submitted for review. (Note: Using demo mode as backend is pending)', [
-                { text: 'Go to Chat', onPress: () => router.push({ pathname: '/chat/room', params: { conversationId: mockConvId } }) }
-            ]);
+            // Persist to Mock Store for Demo Visibility
+            const requestDetails = `New Custom Request:\nPurpose: ${data.purpose}\nBudget: ₦${data.budget_min} - ₦${data.budget_max}\nDetails: ${data.details}`;
+
+            const mockConv = await mockStore.createConversation({
+                user_id: userId,
+                title: `Custom Request - ${data.purpose}`,
+                status: 'pending' as any // Use pending for visual distinction
+            });
+
+            await mockStore.addMessage(mockConv.id, requestDetails, userId);
+            await mockStore.addMessage(mockConv.id, "We've received your custom request! (Demo Mode) An agent will review it shortly.", '00000000-0000-0000-0000-000000000000');
+
+            showAlert('Request Sent (Demo Mode)', 'Your custom request has been submitted for review. (Note: Using demo mode as backend is pending)', [
+                { text: 'Go to Chat', onPress: () => router.push({ pathname: '/chat/room', params: { conversationId: mockConv.id } }) }
+            ], 'success');
         } finally {
             setIsSubmitting(false);
         }

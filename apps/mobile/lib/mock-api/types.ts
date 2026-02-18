@@ -108,6 +108,7 @@ export interface Conversation {
     id: string;
     user_id: string;
     user_name: string;
+    title?: string;
     assigned_to?: string; // assistant_id
     status: 'unassigned' | 'assigned' | 'resolved';
     messages: Message[];

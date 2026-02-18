@@ -4,6 +4,7 @@ import { Text, Button, RadioButton, Surface, Divider, IconButton, Appbar, useThe
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '../../lib/auth';
+import { useFeedback } from '../../lib/FeedbackContext';
 
 const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL!, process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -12,6 +13,7 @@ export default function PaymentScreen() {
     const { orderId, amount } = useLocalSearchParams();
     const theme = useTheme();
     const { session } = useAuth();
+    const { showAlert } = useFeedback();
     const [loading, setLoading] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('card');
 
@@ -34,13 +36,13 @@ export default function PaymentScreen() {
                 });
 
                 setLoading(false);
-                Alert.alert("Success", "Payment confirmed!", [
+                showAlert("Success", "Payment confirmed!", [
                     { text: "Track Order", onPress: () => router.replace(`/orders/${orderId}`) }
-                ]);
+                ], 'success');
             }, 2000);
 
         } catch (e: any) {
-            Alert.alert("Error", e.message);
+            showAlert("Error", e.message, undefined, 'error');
             setLoading(false);
         }
     }

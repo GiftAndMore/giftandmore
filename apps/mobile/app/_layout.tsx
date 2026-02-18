@@ -26,6 +26,7 @@ function RootLayoutNav() {
 }
 
 import { AdminAuthProvider } from '../lib/admin-auth';
+import { FeedbackProvider } from '../lib/FeedbackContext';
 
 // ...
 
@@ -38,9 +39,11 @@ function RootLayoutContent() {
             <AuthProvider>
                 <CartProvider>
                     <AdminAuthProvider>
-                        <View style={{ flex: 1, backgroundColor: currentTheme.colors.background }}>
-                            <RootLayoutNav />
-                        </View>
+                        <FeedbackProvider>
+                            <View style={{ flex: 1, backgroundColor: currentTheme.colors.background }}>
+                                <RootLayoutNav />
+                            </View>
+                        </FeedbackProvider>
                     </AdminAuthProvider>
                 </CartProvider>
             </AuthProvider>

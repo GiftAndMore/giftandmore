@@ -484,6 +484,23 @@ class MockStore {
         return this.conversations.find(c => c.id === id);
     }
 
+    async createConversation(data: Partial<Conversation>) {
+        await this.ensureInitialized();
+        const newConv: Conversation = {
+            id: `conv-${Date.now()}`,
+            user_id: data.user_id || 'unknown',
+            title: data.title || 'Support Chat',
+            status: data.status || 'unassigned',
+            created_at: new Date().toISOString(),
+            last_message_at: new Date().toISOString(),
+            messages: [],
+            ...data
+        };
+        this.conversations.unshift(newConv);
+        await this.save(STORAGE_KEYS.CONVERSATIONS, this.conversations);
+        return newConv;
+    }
+
     async addMessage(conversationId: string, text: string, senderId: string) {
         await this.ensureInitialized();
         const conversation = this.conversations.find(c => c.id === conversationId);
