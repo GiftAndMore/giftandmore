@@ -35,7 +35,9 @@ export default function CustomRequest() {
     const onSubmit = async (data: any) => {
         setIsSubmitting(true);
         const { data: userData } = await supabase.auth.getUser();
-        const userId = userData?.user?.id || '00000000-0000-0000-0000-000000000001';
+        const user = userData?.user;
+        const userId = user?.id || '00000000-0000-0000-0000-000000000001';
+        const userName = user?.user_metadata?.full_name || 'Demo User';
 
         try {
             // 1. Create Conversation
@@ -84,6 +86,7 @@ export default function CustomRequest() {
 
             const mockConv = await mockStore.createConversation({
                 user_id: userId,
+                user_name: userName,
                 title: `Custom Request - ${data.purpose}`,
                 status: 'pending' as any // Use pending for visual distinction
             });

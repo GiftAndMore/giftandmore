@@ -21,7 +21,7 @@ export default function ChatList() {
 
     async function fetchConversations() {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        const userId = user?.id || '00000000-0000-0000-0000-000000000001';
 
         let allConversations: any[] = [];
 
@@ -29,7 +29,7 @@ export default function ChatList() {
         const { data: supabaseData } = await supabase
             .from('conversations')
             .select('*')
-            .eq('user_id', user.id);
+            .eq('user_id', userId);
 
         if (supabaseData) {
             allConversations = [...supabaseData];
@@ -37,7 +37,7 @@ export default function ChatList() {
 
         // 2. Fetch from Mock Store (Demo Mode)
         const mockData = await mockStore.getConversations();
-        const userMockData = mockData.filter(c => c.user_id === user.id);
+        const userMockData = mockData.filter(c => c.user_id === userId);
 
         // Merge and uniquely identify by ID (though they shouldn't overlap if IDs are distinct)
         const merged = [...allConversations];
